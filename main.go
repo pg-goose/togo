@@ -56,16 +56,19 @@ func NewTogo() Togo {
 
 func loadTasks() tea.Msg {
 	// read file
-	home := os.Getenv("HOME")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
 	file, err := os.ReadFile(fmt.Sprintf(taskfile, home))
 	if err != nil {
-		return tea.Quit()
+		panic(err)
 	}
 	// parse that file into tasks struct
 	tasks := make(Tasks, 0)
 	err = json.Unmarshal(file, &tasks)
 	if err != nil {
-		return tea.Quit()
+		panic(err)
 	}
 	return loadTasksMsg(tasks)
 }
@@ -75,7 +78,10 @@ func (m Togo) saveTasks() tea.Msg {
 	if err != nil {
 		panic("Help")
 	}
-	home := os.Getenv("HOME")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
 	os.WriteFile(fmt.Sprintf(taskfile, home), jsonStr, fs.FileMode(os.O_TRUNC))
 	return nil
 }
