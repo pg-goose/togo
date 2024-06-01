@@ -5,6 +5,13 @@ Most to-do list apps are full-featured tools. I found them distracting so I need
 
 ![togo ui](ui.png)
 
+### **Install**
+- Download the binary from [the last release](https://github.com/pg-goose/togo/releases)
+
+> Optional but recomended
+- Rename it (ideally to `togo`)
+- Move it to a directory added to PATH (`/usr/bin`)
+
 ### **Controls**  
 - `Arrows` to move up and down
 - `Enter` to create a task on the task input
