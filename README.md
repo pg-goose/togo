@@ -6,11 +6,14 @@ Most to-do list apps are full-featured tools. I found them distracting so I need
 ![togo ui](ui.png)
 
 ### **Install**
-- Download the binary from [the last release](https://github.com/pg-goose/togo/releases)
+Download the latest binaries for [Linux](https://github.com/pg-goose/togo/releases/latest/download/togo-linux), [Windows](https://github.com/pg-goose/togo/releases/latest/download/togo-win) or [MacOS](https://github.com/pg-goose/togo/releases/latest/download/togo-darwin)  
 
-> Optional but recomended
-- Rename it (ideally to `togo`)
-- Move it to a directory added to PATH (`/usr/bin`)
+> [!TIP]
+> I recomend renaming the binary to `togo` and moving it to a directory added to PATH
+> ```
+> sudo chmod +x togo-linux
+> sudo mv togo-linux /usr/bin/togo 
+> ```
 
 ### **Controls**  
 - `Arrows` to move up and down
