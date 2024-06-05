@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -11,6 +12,25 @@ import (
 )
 
 func main() {
+	// Create the taskfile path if it does not exist
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	taskfileDir := fmt.Sprintf("%s/.config/togo/", home)
+	taskfilePath := fmt.Sprintf("%s/.config/togo/tasks.json", home)
+	if _, err := os.Stat(taskfilePath); os.IsNotExist(err) {
+		err := os.MkdirAll(taskfileDir, 0755)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = os.WriteFile(taskfilePath, []byte("[]"), 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	p := tea.NewProgram(NewTogo(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
@@ -58,17 +78,19 @@ func loadTasks() tea.Msg {
 	// read file
 	home, err := os.UserHomeDir()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	file, err := os.ReadFile(fmt.Sprintf(taskfile, home))
+
+	taskFilePath := fmt.Sprintf(taskfile, home)
+	data, err := os.ReadFile(taskFilePath)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	// parse that file into tasks struct
-	tasks := make(Tasks, 0)
-	err = json.Unmarshal(file, &tasks)
+
+	var tasks Tasks
+	err = json.Unmarshal(data, &tasks)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	return loadTasksMsg(tasks)
 }
@@ -76,11 +98,11 @@ func loadTasks() tea.Msg {
 func (m Togo) saveTasks() tea.Msg {
 	jsonStr, err := json.Marshal(m.tasks)
 	if err != nil {
-		panic("Help")
+		log.Fatal(err)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	os.WriteFile(fmt.Sprintf(taskfile, home), jsonStr, fs.FileMode(os.O_TRUNC))
 	return nil
@@ -126,7 +148,7 @@ func (m Togo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			default:
 				m.cursor += 1
 			}
-		case tea.KeyEnter:
+		case tea.KeyEnter, tea.KeySpace:
 			if m.taskIn.Focused() {
 				v := m.taskIn.Value()
 				if v == "" {
