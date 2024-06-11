@@ -1,0 +1,14 @@
+version: '3'
+
+tasks:
+  build_all:
+    cmds:
+      - GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o togo-linux togo.go &
+      - GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o togo-win.exe togo.go &
+      - GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o togo-darwin togo.go &
+      - wait
+    silent: false
+
+  clean:
+    cmds:
+      - rm -f togo-linux togo-win.exe togo-darwin
