@@ -151,9 +151,18 @@ func (m *Togo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func Count[T any](s []T, p func(T) bool) (c int) {
+	for _, y := range s {
+		if p(y) {
+			c++
+		}
+	}
+	return c
+}
+
 // View renders the UI.
 func (m *Togo) View() string {
-	s := fmt.Sprintf("Tasks (%d):\n", len(m.tasks))
+	s := fmt.Sprintf("Tasks (%d/%d):\n", Count(m.tasks, func(t Task) bool { return t.Complete }), len(m.tasks))
 	s += m.taskIn.View() + "\n"
 	for i, task := range m.tasks {
 		cursor := " "
