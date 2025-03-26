@@ -97,7 +97,7 @@ func (m *Togo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyUp:
 			if len(m.tasks) > 0 {
-				if m.cursor <= 0 {
+				if m.cursor <= -1 {
 					m.cursor = len(m.tasks) - 1
 				} else {
 					m.cursor--
@@ -106,7 +106,7 @@ func (m *Togo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyDown:
 			if len(m.tasks) > 0 {
 				if m.cursor >= len(m.tasks)-1 {
-					m.cursor = 0
+					m.cursor = -1
 				} else {
 					m.cursor++
 				}
