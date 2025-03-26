@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 
@@ -11,192 +10,187 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func main() {
-	// Create the taskfile path if it does not exist
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	taskfileDir := fmt.Sprintf("%s/.config/togo/", home)
-	taskfilePath := fmt.Sprintf("%s/.config/togo/tasks.json", home)
-	if _, err := os.Stat(taskfilePath); os.IsNotExist(err) {
-		err := os.MkdirAll(taskfileDir, 0755)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = os.WriteFile(taskfilePath, []byte("[]"), 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	p := tea.NewProgram(NewTogo(), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
-		os.Exit(1)
-	}
-}
-
-const taskfile = "%s/.config/togo/tasks.json"
-
+// Task represents an individual task.
 type Task struct {
 	Task     string `json:"task"`
 	Complete bool   `json:"completed"`
 }
 
 func (t Task) String() string {
-	complete := " "
+	status := " "
 	if t.Complete {
-		complete = "x"
+		status = "x"
 	}
-	return fmt.Sprintf("[%s] %s", complete, t.Task)
+	return fmt.Sprintf("[%s] %s", status, t.Task)
 }
 
+// Tasks is a slice of Task.
 type Tasks []Task
+
+// loadTasksMsg is a message containing loaded tasks.
 type loadTasksMsg Tasks
 
+// Togo is the Bubble Tea model.
 type Togo struct {
-	taskIn textinput.Model
-	tasks  Tasks
-	cursor int
+	taskFilePath string
+	taskIn       textinput.Model
+	tasks        Tasks
+	cursor       int
 }
 
-func NewTogo() Togo {
+// NewTogo initializes the Togo model.
+func NewTogo(path string) *Togo {
 	ti := textinput.New()
 	ti.Placeholder = "Task name"
 	ti.Focus()
 	ti.CharLimit = 128
-	return Togo{
-		taskIn: ti,
-		tasks:  make(Tasks, 0),
-		cursor: -1,
+
+	return &Togo{
+		taskFilePath: path,
+		taskIn:       ti,
+		tasks:        make(Tasks, 0),
+		cursor:       -1, // no task selected
 	}
 }
 
-func loadTasks() tea.Msg {
-	// read file
-	home, err := os.UserHomeDir()
+// loadTasks reads tasks from the file and returns a message.
+func (m *Togo) loadTasks() tea.Msg {
+	data, err := os.ReadFile(m.taskFilePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("error reading tasks file:", err)
+		return nil
 	}
-
-	taskFilePath := fmt.Sprintf(taskfile, home)
-	data, err := os.ReadFile(taskFilePath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	var tasks Tasks
-	err = json.Unmarshal(data, &tasks)
-	if err != nil {
-		log.Fatal(err)
+	if err := json.Unmarshal(data, &tasks); err != nil {
+		log.Println("error unmarshalling tasks:", err)
+		return nil
 	}
 	return loadTasksMsg(tasks)
 }
 
-func (m Togo) saveTasks() tea.Msg {
-	jsonStr, err := json.Marshal(m.tasks)
+// saveTasks writes the current tasks to the file.
+func (m *Togo) saveTasks() {
+	jsonData, err := json.Marshal(m.tasks)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("error marshalling tasks:", err)
+		return
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
+	if err := os.WriteFile(m.taskFilePath, jsonData, 0644); err != nil {
+		log.Println("error writing tasks file:", err)
 	}
-	os.WriteFile(fmt.Sprintf(taskfile, home), jsonStr, fs.FileMode(os.O_TRUNC))
-	return nil
 }
 
-func (m Togo) Init() tea.Cmd {
-	return loadTasks
+// Init returns an initial command to load tasks.
+func (m *Togo) Init() tea.Cmd {
+	// Wrap loadTasks in a command function.
+	return func() tea.Msg {
+		return m.loadTasks()
+	}
 }
 
-func (m Togo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// Update handles incoming messages and key events.
+func (m *Togo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.QuitMsg:
-		return m, tea.Quit
-	case loadTasksMsg:
-		m.tasks = Tasks(msg)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyUp:
-			if len(m.tasks) == 0 {
-				m.cursor = -1
-				break
-			}
-			switch m.cursor {
-			case -1:
-				m.cursor = len(m.tasks) - 1
-			case len(m.tasks) - 1:
-				m.cursor -= 1
-			default:
-				m.cursor -= 1
+			if len(m.tasks) > 0 {
+				if m.cursor <= 0 {
+					m.cursor = len(m.tasks) - 1
+				} else {
+					m.cursor--
+				}
 			}
 		case tea.KeyDown:
-			if len(m.tasks) == 0 {
-				m.cursor = -1
-				break
-			}
-			switch m.cursor {
-			case -1:
-				m.cursor += 1
-			case len(m.tasks) - 1:
-				m.cursor = -1
-			default:
-				m.cursor += 1
-			}
-		case tea.KeyEnter, tea.KeySpace:
-			if m.taskIn.Focused() {
-				if msg.Type == tea.KeySpace {
-					break
+			if len(m.tasks) > 0 {
+				if m.cursor >= len(m.tasks)-1 {
+					m.cursor = 0
+				} else {
+					m.cursor++
 				}
+			}
+		case tea.KeyEnter:
+			if m.taskIn.Focused() {
 				v := m.taskIn.Value()
-				if v == "" {
-					break
+				if v != "" {
+					m.tasks = append(m.tasks, Task{Task: v})
+					m.taskIn.Reset()
 				}
-				task := Task{
-					Task:     v,
-					Complete: false,
-				}
-				m.tasks = append(m.tasks, task)
-				m.taskIn.Reset()
-				break
+			} else if m.cursor >= 0 && m.cursor < len(m.tasks) {
+				m.tasks[m.cursor].Complete = !m.tasks[m.cursor].Complete
 			}
-			c := m.tasks[m.cursor].Complete
-			m.tasks[m.cursor].Complete = !c
+		case tea.KeySpace:
+			if !m.taskIn.Focused() && m.cursor >= 0 && m.cursor < len(m.tasks) {
+				m.tasks[m.cursor].Complete = !m.tasks[m.cursor].Complete
+			}
 		case tea.KeyDelete, tea.KeyBackspace:
-			if m.taskIn.Focused() {
-				break
+			if !m.taskIn.Focused() && len(m.tasks) > 0 && m.cursor >= 0 && m.cursor < len(m.tasks) {
+				m.tasks = append(m.tasks[:m.cursor], m.tasks[m.cursor+1:]...)
+				if m.cursor >= len(m.tasks) {
+					m.cursor = len(m.tasks) - 1
+				}
 			}
-			index := m.cursor
-			m.cursor -= 1
-			m.tasks = append(m.tasks[:index], m.tasks[index+1:]...)
 		case tea.KeyCtrlC:
 			return m, tea.Quit
 		}
+	case loadTasksMsg:
+		m.tasks = Tasks(msg)
 	}
+
+	// If no task is selected, keep the text input focused.
 	if m.cursor == -1 {
 		m.taskIn.Focus()
 	} else {
 		m.taskIn.Blur()
 	}
-	m.saveTasks()
+
 	m.taskIn, cmd = m.taskIn.Update(msg)
+	m.saveTasks() // Persist tasks on every update.
 	return m, cmd
 }
 
-func (m Togo) View() string {
-	ret := fmt.Sprintf("Tasks\t%d\n", len(m.tasks))
-	ret += m.taskIn.View() + "\n"
+// View renders the UI.
+func (m *Togo) View() string {
+	s := fmt.Sprintf("Tasks (%d):\n", len(m.tasks))
+	s += m.taskIn.View() + "\n"
 	for i, task := range m.tasks {
 		cursor := " "
 		if m.cursor == i {
 			cursor = ">"
 		}
-		ret += fmt.Sprintf("%s%s\n", cursor, task.String())
+		s += fmt.Sprintf("%s %s\n", cursor, task.String())
 	}
-	return ret
+	return s
+}
+
+func main() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	taskfileDir := fmt.Sprintf("%s/.config/togo", home)
+	taskfilePath := fmt.Sprintf("%s/tasks.json", taskfileDir)
+
+	// Create the configuration directory if it doesn't exist.
+	if _, err := os.Stat(taskfileDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(taskfileDir, 0755); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// Create the tasks file if it doesn't exist.
+	if _, err := os.Stat(taskfilePath); os.IsNotExist(err) {
+		if err := os.WriteFile(taskfilePath, []byte("[]"), 0644); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	model := NewTogo(taskfilePath)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
