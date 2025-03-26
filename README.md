@@ -9,7 +9,7 @@ Most to-do list apps are full-featured tools. I found them distracting so I need
 Download the latest binaries for [Linux](https://github.com/pg-goose/togo/releases/latest/download/togo-linux), [Windows](https://github.com/pg-goose/togo/releases/latest/download/togo-win) or [MacOS](https://github.com/pg-goose/togo/releases/latest/download/togo-darwin)  
 
 > [!TIP]
-> I recomend renaming the binary to `togo` and moving it to a directory added to PATH. The main reason for this was convenience, after all.
+> Rename the binary to `togo` and moving it to a directory added to PATH. The main reason for this program was convenience, after all.
 > ```
 > sudo chmod +x togo-linux
 > sudo mv togo-linux /usr/bin/togo 
